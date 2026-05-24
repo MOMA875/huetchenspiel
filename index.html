@@ -1,5 +1,5 @@
 <div id="shell-game-wrapper">
-    <div id="game-status">Runde 1 von 3: Finde den roten Ball!</div>
+    <div id="game-status">Runde 1 von 4</div>
     <div id="game-container">
         <div class="cup-slot" id="slot-0">
             <div class="cup" id="cup-0" onclick="chooseCup(0)"></div>
@@ -14,7 +14,8 @@
             <div class="item" id="item-2"></div>
         </div>
     </div>
-    <button id="start-btn" onclick="startGame()">Spiel starten</button>
+    <div id="magic-title">Magic Mike präsentiert: Das Becherspiel</div>
+    <button id="start-btn" onclick="handleStartButtonClick()">Spiel starten</button>
 </div>
 
 <style>
@@ -42,7 +43,7 @@
     justify-content: space-around;
     position: relative;
     height: 220px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 .cup-slot {
     position: absolute;
@@ -105,6 +106,13 @@
 .item.visible {
     opacity: 1;
 }
+#magic-title {
+    color: #ff4d4d;
+    font-weight: bold;
+    font-size: 22px;
+    margin-bottom: 20px;
+    min-height: 26px;
+}
 #start-btn {
     background: linear-gradient(135deg, #ffd700, #d4af37);
     color: #111;
@@ -116,6 +124,7 @@
     cursor: pointer;
     transition: transform 0.2s, opacity 0.2s;
     box-shadow: 0 4px 15px rgba(212,175,55,0.4);
+    margin-top: 10px;
 }
 #start-btn:hover {
     transform: scale(1.05);
@@ -133,25 +142,63 @@ let ballSlot = 1; // Start in der Mitte
 let isShuffling = false;
 let gameActive = false;
 let positions = [0, 1, 2];
+let shuffleCount = 0;
+const maxShuffles = 7;
+let isFirstRoundOfGame = true; // Kontrolliert das Intro beim allerersten Start
 
 function initRound() {
     isShuffling = false;
     gameActive = false;
     document.getElementById('start-btn').disabled = false;
     
-    // Becher senken
+    // Becher senken und alle Items leeren
     for(let i=0; i<3; i++) {
         document.getElementById(`cup-${i}`).classList.remove('lifted');
-        const item = document.getElementById(`item-${i}`);
-        item.className = 'item';
+        document.getElementById(`item-${i}`).className = 'item';
     }
     
-    // Ball unter dem Startbecher anzeigen
+    // Zeitlicher Ablauf wie im vorletzten Code: 
+    // Wenn es NICHT die erste Runde nach dem Intro/Reset ist, zeige den Ball sofort nach 600ms an
+    if (!isFirstRoundOfGame) {
+        setTimeout(() => {
+            const initialItem = document.getElementById(`item-${ballSlot}`);
+            initialItem.classList.add('ball', 'visible');
+            document.getElementById('game-status').innerText = `Runde ${currentRound} von 4: Merk dir den Ball!`;
+        }, 600);
+    } else {
+        // Bei der allerersten Runde bleibt der Ball unsichtbar, bis der Button geklickt wird
+        document.getElementById('game-status').innerText = `Runde ${currentRound} von 4`;
+    }
+}
+
+function handleStartButtonClick() {
+    if (isFirstRoundOfGame) {
+        startIntro();
+    } else {
+        startGame();
+    }
+}
+
+function startIntro() {
+    document.getElementById('start-btn').disabled = true;
+    
+    // Schriftzug verschwinden lassen
+    document.getElementById('magic-title').style.display = 'none';
+    document.getElementById('game-status').innerText = "Konzentration...";
+    
+    // Nach 2 Sekunden erscheint der Ball
     setTimeout(() => {
         const initialItem = document.getElementById(`item-${ballSlot}`);
         initialItem.classList.add('ball', 'visible');
-        document.getElementById('game-status').innerText = `Runde ${currentRound} von 3: Merk dir den Ball!`;
-    }, 600);
+        document.getElementById('game-status').innerText = `Runde ${currentRound} von 4: Merk dir den Ball!`;
+        
+        // Nach weiteren 2 Sekunden wandert der Ball unter den Becher und das Spiel beginnt
+        setTimeout(() => {
+            isFirstRoundOfGame = false; // Intro beendet, Folgerunden laufen normal
+            startGame();
+        }, 2000);
+        
+    }, 2000);
 }
 
 function startGame() {
@@ -163,16 +210,13 @@ function startGame() {
         document.getElementById(`item-${i}`).classList.remove('visible');
     }
     
-    // Kurz warten, dann mischen
+    // Kurz warten, dann mischen starten (Zyklen wie im vorletzten Code)
     setTimeout(() => {
         isShuffling = true;
         shuffleCount = 0;
         doShuffle();
     }, 800);
 }
-
-let shuffleCount = 0;
-const maxShuffles = 7; // Wie oft getauscht wird
 
 function doShuffle() {
     if (shuffleCount >= maxShuffles) {
@@ -182,29 +226,25 @@ function doShuffle() {
         return;
     }
     
-    // Zwei zufällige Slots auswählen zum Tauschen
     let idx1 = Math.floor(Math.random() * 3);
     let idx2 = Math.floor(Math.random() * 3);
     while (idx1 === idx2) {
         idx2 = Math.floor(Math.random() * 3);
     }
     
-    // Positionen im Array tauschen
     let temp = positions[idx1];
     positions[idx1] = positions[idx2];
     positions[idx2] = temp;
     
-    // Visuell im DOM verschieben
     updateDOMPositions();
     
     shuffleCount++;
-    setTimeout(doShuffle, 400); // Geschwindigkeit der Sprünge
+    setTimeout(doShuffle, 400);
 }
 
 function updateDOMPositions() {
     const slotLefts = ["5%", "38%", "70%"];
     for(let i=0; i<3; i++) {
-        // Finde heraus, welcher Slot gerade an welcher Position steht
         let currentSlotIdx = positions.indexOf(i);
         document.getElementById(`slot-${i}`).style.left = slotLefts[currentSlotIdx];
     }
@@ -214,33 +254,49 @@ function chooseCup(cupId) {
     if (!gameActive || isShuffling) return;
     gameActive = false;
     
-    // Welcher Slot wurde angeklickt?
     let clickedSlot = cupId; 
     
-    // In Runde 3: Überall Zitronen, kein Ball
-    if (currentRound === 3) {
+    // In Runde 4: Überall Zitronen, kein Ball
+    if (currentRound === 4) {
         for(let i=0; i<3; i++) {
             const item = document.getElementById(`item-${i}`);
             item.className = 'item lemon visible';
             document.getElementById(`cup-${i}`).classList.add('lifted');
         }
         document.getElementById('game-status').innerText = "Simsalabim! Der Ball ist weg... dafür gibt es Zitronen! 🍋";
-        document.getElementById('start-btn').innerText = "Nochmal spielen";
-        document.getElementById('start-btn').disabled = false;
-        currentRound = 1;
-        // Reset Positionen
-        positions = [0, 1, 2];
-        ballSlot = 1;
+        
+        // Nach 2 Sekunden Becher wieder senken
+        setTimeout(() => {
+            for(let i=0; i<3; i++) {
+                document.getElementById(`cup-${i}`).classList.remove('lifted');
+            }
+            const startBtn = document.getElementById('start-btn');
+            startBtn.innerText = "Nochmal spielen";
+            startBtn.disabled = false;
+            
+            startBtn.onclick = function() {
+                currentRound = 1;
+                positions = [0, 1, 2];
+                ballSlot = 1;
+                isFirstRoundOfGame = true; // Setzt den Intro-Modus für das neue Spiel zurück
+                
+                startBtn.innerText = "Spiel starten";
+                startBtn.onclick = handleStartButtonClick;
+                
+                // Titel wieder einblenden
+                document.getElementById('magic-title').style.display = 'block';
+                initRound();
+            };
+        }, 2000);
+        
         return;
     }
     
-    // Runden 1 und 2: Normales Auflösen
-    // Alle Becher heben
+    // Runden 1, 2 und 3: Normales Auflösen
     for(let i=0; i<3; i++) {
         document.getElementById(`cup-${i}`).classList.add('lifted');
     }
     
-    // Ball im richtigen Slot anzeigen
     const ballItem = document.getElementById(`item-${ballSlot}`);
     ballItem.classList.add('ball', 'visible');
     
@@ -250,7 +306,6 @@ function chooseCup(cupId) {
         document.getElementById('game-status').innerText = "Knapp daneben! Der Ball war im anderen Becher.";
     }
     
-    // Nächste Runde vorbereiten
     currentRound++;
     document.getElementById('start-btn').innerText = `Runde ${currentRound} starten`;
     
@@ -259,7 +314,6 @@ function chooseCup(cupId) {
     }, 3000);
 }
 
-// Initialer Start beim Laden der Seite
 window.onload = function() {
     initRound();
 };
