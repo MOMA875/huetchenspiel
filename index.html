@@ -1,0 +1,266 @@
+<div id="shell-game-wrapper">
+    <div id="game-status">Runde 1 von 3: Finde den roten Ball!</div>
+    <div id="game-container">
+        <div class="cup-slot" id="slot-0">
+            <div class="cup" id="cup-0" onclick="chooseCup(0)"></div>
+            <div class="item" id="item-0"></div>
+        </div>
+        <div class="cup-slot" id="slot-1">
+            <div class="cup" id="cup-1" onclick="chooseCup(1)"></div>
+            <div class="item" id="item-1"></div>
+        </div>
+        <div class="cup-slot" id="slot-2">
+            <div class="cup" id="cup-2" onclick="chooseCup(2)"></div>
+            <div class="item" id="item-2"></div>
+        </div>
+    </div>
+    <button id="start-btn" onclick="startGame()">Spiel starten</button>
+</div>
+
+<style>
+#shell-game-wrapper {
+    background: #111;
+    color: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    text-align: center;
+    font-family: 'Arial', sans-serif;
+    max-width: 600px;
+    margin: 20px auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+#game-status {
+    font-size: 20px;
+    margin-bottom: 30px;
+    font-weight: bold;
+    min-height: 30px;
+    color: #ffd700;
+}
+#game-container {
+    display: flex;
+    justify-content: space-around;
+    position: relative;
+    height: 220px;
+    margin-bottom: 20px;
+}
+.cup-slot {
+    position: absolute;
+    width: 120px;
+    height: 200px;
+    transition: left 0.4s ease-in-out;
+}
+#slot-0 { left: 5%; }
+#slot-1 { left: 38%; }
+#slot-2 { left: 70%; }
+
+.cup {
+    width: 100px;
+    height: 130px;
+    background: linear-gradient(135deg, #e6e6e6 0%, #ffffff 30%, #999999 70%, #cccccc 100%);
+    border-radius: 40px 40px 10px 10px;
+    clip-path: polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%);
+    position: absolute;
+    top: 0;
+    left: 10px;
+    z-index: 2;
+    cursor: pointer;
+    transition: transform 0.5s ease;
+    box-shadow: inset 0 -10px 20px rgba(0,0,0,0.2);
+}
+.cup::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 15%;
+    width: 70%;
+    height: 12px;
+    background: #999;
+    border-radius: 50%;
+}
+.cup.lifted {
+    transform: translateY(-80px);
+}
+.item {
+    position: absolute;
+    bottom: 20px;
+    left: 40px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.item.ball {
+    background: radial-gradient(circle at 30% 30%, #ff4d4d, #990000);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+.item.lemon {
+    background: radial-gradient(circle at 30% 30%, #fff700, #b3a700);
+    border-radius: 50% 60% 50% 60%;
+    transform: rotate(45deg);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+.item.visible {
+    opacity: 1;
+}
+#start-btn {
+    background: linear-gradient(135deg, #ffd700, #d4af37);
+    color: #111;
+    border: none;
+    padding: 12px 30px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: transform 0.2s, opacity 0.2s;
+    box-shadow: 0 4px 15px rgba(212,175,55,0.4);
+}
+#start-btn:hover {
+    transform: scale(1.05);
+}
+#start-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+</style>
+
+<script>
+let currentRound = 1;
+let ballSlot = 1; // Start in der Mitte
+let isShuffling = false;
+let gameActive = false;
+let positions = [0, 1, 2];
+
+function initRound() {
+    isShuffling = false;
+    gameActive = false;
+    document.getElementById('start-btn').disabled = false;
+    
+    // Becher senken
+    for(let i=0; i<3; i++) {
+        document.getElementById(`cup-${i}`).classList.remove('lifted');
+        const item = document.getElementById(`item-${i}`);
+        item.className = 'item';
+    }
+    
+    // Ball unter dem Startbecher anzeigen
+    setTimeout(() => {
+        const initialItem = document.getElementById(`item-${ballSlot}`);
+        initialItem.classList.add('ball', 'visible');
+        document.getElementById('game-status').innerText = `Runde ${currentRound} von 3: Merk dir den Ball!`;
+    }, 600);
+}
+
+function startGame() {
+    document.getElementById('start-btn').disabled = true;
+    document.getElementById('game-status').innerText = "Konzentration...";
+    
+    // Ball verstecken (Becher "virtuell" senken)
+    for(let i=0; i<3; i++) {
+        document.getElementById(`item-${i}`).classList.remove('visible');
+    }
+    
+    // Kurz warten, dann mischen
+    setTimeout(() => {
+        isShuffling = true;
+        shuffleCount = 0;
+        doShuffle();
+    }, 800);
+}
+
+let shuffleCount = 0;
+const maxShuffles = 7; // Wie oft getauscht wird
+
+function doShuffle() {
+    if (shuffleCount >= maxShuffles) {
+        isShuffling = false;
+        gameActive = true;
+        document.getElementById('game-status').innerText = "Wo ist der Ball? Klicke auf einen Becher!";
+        return;
+    }
+    
+    // Zwei zufällige Slots auswählen zum Tauschen
+    let idx1 = Math.floor(Math.random() * 3);
+    let idx2 = Math.floor(Math.random() * 3);
+    while (idx1 === idx2) {
+        idx2 = Math.floor(Math.random() * 3);
+    }
+    
+    // Positionen im Array tauschen
+    let temp = positions[idx1];
+    positions[idx1] = positions[idx2];
+    positions[idx2] = temp;
+    
+    // Visuell im DOM verschieben
+    updateDOMPositions();
+    
+    shuffleCount++;
+    setTimeout(doShuffle, 400); // Geschwindigkeit der Sprünge
+}
+
+function updateDOMPositions() {
+    const slotLefts = ["5%", "38%", "70%"];
+    for(let i=0; i<3; i++) {
+        // Finde heraus, welcher Slot gerade an welcher Position steht
+        let currentSlotIdx = positions.indexOf(i);
+        document.getElementById(`slot-${i}`).style.left = slotLefts[currentSlotIdx];
+    }
+}
+
+function chooseCup(cupId) {
+    if (!gameActive || isShuffling) return;
+    gameActive = false;
+    
+    // Welcher Slot wurde angeklickt?
+    let clickedSlot = cupId; 
+    
+    // In Runde 3: Überall Zitronen, kein Ball
+    if (currentRound === 3) {
+        for(let i=0; i<3; i++) {
+            const item = document.getElementById(`item-${i}`);
+            item.className = 'item lemon visible';
+            document.getElementById(`cup-${i}`).classList.add('lifted');
+        }
+        document.getElementById('game-status').innerText = "Simsalabim! Der Ball ist weg... dafür gibt es Zitronen! 🍋";
+        document.getElementById('start-btn').innerText = "Nochmal spielen";
+        document.getElementById('start-btn').disabled = false;
+        currentRound = 1;
+        // Reset Positionen
+        positions = [0, 1, 2];
+        ballSlot = 1;
+        return;
+    }
+    
+    // Runden 1 und 2: Normales Auflösen
+    // Alle Becher heben
+    for(let i=0; i<3; i++) {
+        document.getElementById(`cup-${i}`).classList.add('lifted');
+    }
+    
+    // Ball im richtigen Slot anzeigen
+    const ballItem = document.getElementById(`item-${ballSlot}`);
+    ballItem.classList.add('ball', 'visible');
+    
+    if (clickedSlot === ballSlot) {
+        document.getElementById('game-status').innerText = "Richtig! Gut aufgepasst!";
+    } else {
+        document.getElementById('game-status').innerText = "Knapp daneben! Der Ball war im anderen Becher.";
+    }
+    
+    // Nächste Runde vorbereiten
+    currentRound++;
+    document.getElementById('start-btn').innerText = `Runde ${currentRound} starten`;
+    
+    setTimeout(() => {
+        initRound();
+    }, 3000);
+}
+
+// Initialer Start beim Laden der Seite
+window.onload = function() {
+    initRound();
+};
+</script>
